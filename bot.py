@@ -16,17 +16,18 @@ from telegram.ext import (
 )
 
 # ---------- CONFIG ----------
-load_dotenv()
+load_dotenv()  # Railway uses env vars, but this allows local dev
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# MySQL credentials from .env
+# MySQL credentials from Railway env
 DB_HOST = os.getenv("DB_HOST", "localhost")
 DB_USER = os.getenv("DB_USER", "root")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "")
 DB_NAME = os.getenv("DB_NAME", "firm_db")
 
-CONVO_FILE = "conversation.json"
-# ----------------------------
+# Path to JSON conversation
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CONVO_FILE = os.path.join(BASE_DIR, "conversation.json")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -95,7 +96,6 @@ def get_user_requests(user_id):
     except Error as e:
         logger.error(f"MySQL fetch error: {e}")
         return []
-# --------------------------------
 
 # ---------- HANDLERS ----------
 async def goto_state(update, context, state_name: str, new_message: bool = True):
@@ -156,7 +156,6 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     context.user_data["last_choice"] = choice
 
-    # Confirm / Cancel
     if choice == "Confirm Transaction":
         save_request(
             update.effective_user.id,
@@ -170,25 +169,19 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data.clear()
         return await goto_state(update, context, "start")
 
-    # Request Service / Back buttons on description
     if choice == "Request Service":
         return await goto_state(update, context, "request_details")
     if choice == "Back":
         parent_state = context.user_data.get("parent_state", "start")
         return await goto_state(update, context, parent_state)
 
-    # Navigate normally
     if choice in state.get("next", {}):
         next_state = state["next"][choice]
-
-        # If next_state has description, save parent & project type
         if "description" in CONVO.get(next_state, {}):
             context.user_data["parent_state"] = state_name
             context.user_data["project_type"] = choice
-
         return await goto_state(update, context, next_state)
 
-    # Default: refresh current state
     return await goto_state(update, context, state_name)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -209,16 +202,13 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["username"] = update.message.text.strip().lstrip("@")
         return await goto_state(update, context, "request_summary")
     await update.message.reply_text("⚠️ Please use the menu buttons.")
-# --------------------------------
 
 # ---------- MAIN ----------
 def main():
     init_db()
     app = Application.builder().token(BOT_TOKEN).build()
 
-    # Collect all states dynamically from JSON
     all_states = {k: [CallbackQueryHandler(handle_callback)] for k in CONVO.keys()}
-    # Add text handlers for input states
     for t_state in ["request_details", "request_username"]:
         all_states[t_state] = [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text)]
 
@@ -231,7 +221,7 @@ def main():
 
     app.add_handler(conv_handler)
     logger.info("🤖 Bot is running...")
-    app.run_polling()
+    app.run_polling(allowed_updates=Update.ALL_TYPES)
 
 if __name__ == "__main__":
     main()
