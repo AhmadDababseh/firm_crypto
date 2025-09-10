@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import mysql.connector
 from mysql.connector import Error
 from dotenv import load_dotenv
@@ -16,14 +17,12 @@ from telegram.ext import (
 )
 
 # ---------- CONFIG ----------
-load_dotenv()  # Railway uses env vars, but this allows local dev
+load_dotenv()  # Local dev; Railway injects env vars automatically
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
-# MySQL credentials from Railway env
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_NAME = os.getenv("DB_NAME", "firm_db")
+# Railway MySQL URL (single connection string)
+# Example: mysql://user:pass@host:3306/dbname
+DB_URL = os.getenv("MYSQL_URL")
 
 # Path to JSON conversation
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -36,24 +35,38 @@ with open(CONVO_FILE, "r", encoding="utf-8") as f:
     CONVO = json.load(f)
 
 # ---------- DATABASE ----------
+def parse_mysql_url(url: str):
+    """Parse a MySQL connection string into connection parameters."""
+    match = re.match(r"mysql:\/\/(.*?):(.*?)@(.*?):(\d+)\/(.*)", url)
+    if not match:
+        raise ValueError("Invalid MySQL URL format")
+    user, password, host, port, db = match.groups()
+    return {
+        "user": user,
+        "password": password,
+        "host": host,
+        "port": int(port),
+        "database": db,
+    }
+
 def get_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
+    creds = parse_mysql_url(DB_URL)
+    return mysql.connector.connect(**creds)
 
 def init_db():
+    """Initialize the database and ensure the 'requests' table exists."""
     try:
+        creds = parse_mysql_url(DB_URL)
         conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD
+            host=creds["host"],
+            user=creds["user"],
+            password=creds["password"],
+            port=creds["port"],
         )
         cur = conn.cursor()
-        cur.execute(f"CREATE DATABASE IF NOT EXISTS {DB_NAME}")
-        conn.database = DB_NAME
+        cur.execute(f"CREATE DATABASE IF NOT EXISTS {creds['database']}")
+        conn.database = creds["database"]
+
         cur.execute("""
             CREATE TABLE IF NOT EXISTS requests (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,6 +80,7 @@ def init_db():
         conn.commit()
         cur.close()
         conn.close()
+        logger.info("✅ Database initialized successfully")
     except Error as e:
         logger.error(f"MySQL init error: {e}")
 
@@ -132,7 +146,6 @@ async def goto_state(update, context, state_name: str, new_message: bool = True)
             [InlineKeyboardButton("Back", callback_data="Back")]
         ])
     else:
-        # Normal buttons from JSON
         buttons = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in state.get("options", [])]
         reply_markup = InlineKeyboardMarkup(buttons) if buttons else None
 
