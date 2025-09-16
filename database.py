@@ -1,64 +1,63 @@
-import os
-import re
+# database.py
 import mysql.connector
-from mysql.connector import Error
+from mysql.connector import pooling
+from urllib.parse import urlparse
+import os
 from dotenv import load_dotenv
 
-# ----------------- LOAD ENV VARIABLES -----------------
 load_dotenv()
-DATABASE_URL = os.getenv("DATABASE_URL")  # Format: mysql://USER:PASSWORD@HOST:PORT/DBNAME
 
-# ----------------- PARSE RAILWAY URL -----------------
-def parse_database_url(url):
-    """Parses the Railway MySQL URL into components for mysql-connector."""
-    pattern = re.compile(
-        r"mysql:\/\/(?P<user>.*?):(?P<password>.*?)@(?P<host>.*?):(?P<port>\d+)\/(?P<dbname>.*?)$"
-    )
-    match = pattern.match(url)
-    if not match:
-        raise ValueError("Invalid DATABASE_URL format")
-    return match.groupdict()
+# Railway gives you DATABASE_URL (MySQL)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-db_config = parse_database_url(DATABASE_URL)
+if not DATABASE_URL:
+    raise ValueError("❌ DATABASE_URL not set in environment variables.")
 
-# ----------------- CONNECTION -----------------
-def get_connection():
-    """Get a new DB connection."""
-    return mysql.connector.connect(
-        host=db_config["host"],
-        user=db_config["user"],
-        password=db_config["password"],
-        database=db_config["dbname"],
-        port=int(db_config["port"]),
-    )
+# Parse DATABASE_URL
+url = urlparse(DATABASE_URL)
 
-# ----------------- INIT TABLES -----------------
+dbconfig = {
+    "host": url.hostname,
+    "user": url.username,
+    "password": url.password,
+    "database": url.path[1:],  # remove leading '/'
+    "port": url.port or 3306
+}
+
+# Connection Pool
+connection_pool = pooling.MySQLConnectionPool(
+    pool_name="mypool",
+    pool_size=5,
+    **dbconfig
+)
+
 def init_db():
-    """Create tables if they don’t exist."""
-    conn = get_connection()
+    """Initialize database tables if not exist."""
+    conn = connection_pool.get_connection()
     cursor = conn.cursor()
 
+    # Request table
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS requests (
+        CREATE TABLE IF NOT EXISTS request (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            telegram_id VARCHAR(50) NOT NULL,
-            scam_name VARCHAR(255) NOT NULL,
-            scam_link VARCHAR(500) NOT NULL,
-            scam_owner VARCHAR(255),
-            scam_description TEXT,
-            scam_date VARCHAR(50),
-            scammed_amount VARCHAR(50),
-            scam_token VARCHAR(100),
+            user_id BIGINT NOT NULL,
+            project_type VARCHAR(255) NOT NULL,
+            details TEXT NOT NULL,
+            username VARCHAR(255),
+            status VARCHAR(50) DEFAULT 'active',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
+    # Provide table
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS services (
+        CREATE TABLE IF NOT EXISTS provide (
             id INT AUTO_INCREMENT PRIMARY KEY,
-            telegram_id VARCHAR(50) NOT NULL,
-            service_type VARCHAR(100) NOT NULL, -- e.g., "contact", "verification"
-            message TEXT NOT NULL,
+            user_id BIGINT NOT NULL,
+            service_category VARCHAR(255) NOT NULL,
+            subservice VARCHAR(255) NOT NULL,
+            description TEXT,
+            username VARCHAR(255),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     """)
@@ -67,72 +66,77 @@ def init_db():
     cursor.close()
     conn.close()
 
-# ----------------- REQUESTS FUNCTIONS -----------------
-def add_request(telegram_id, data: dict):
-    """Insert a new scam report request."""
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
 
-    query = """
-        INSERT INTO requests 
-        (telegram_id, scam_name, scam_link, scam_owner, scam_description, scam_date, scammed_amount, scam_token)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    """
-    values = (
-        str(telegram_id),
-        data.get("scam_name"),
-        data.get("scam_link"),
-        data.get("scam_owner"),
-        data.get("scam_description"),
-        data.get("scam_date"),
-        data.get("scammed_amount"),
-        data.get("scam_token"),
-    )
+# ---------------- CRUD HELPERS ---------------- #
 
-    cursor.execute(query, values)
+# Request Table
+def add_request(user_id, project_type, details, username):
+    conn = connection_pool.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO request (user_id, project_type, details, username)
+        VALUES (%s, %s, %s, %s)
+    """, (user_id, project_type, details, username))
     conn.commit()
-    request_id = cursor.lastrowid
-
     cursor.close()
     conn.close()
-    return request_id
 
-def get_requests():
-    """Retrieve all scam report requests."""
-    conn = get_connection()
+
+def get_requests_by_user(user_id):
+    conn = connection_pool.get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM requests ORDER BY created_at DESC")
-    results = cursor.fetchall()
+    cursor.execute("SELECT * FROM request WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+    rows = cursor.fetchall()
     cursor.close()
     conn.close()
-    return results
+    return rows
 
-# ----------------- SERVICES FUNCTIONS -----------------
-def add_service(telegram_id, service_type, message):
-    """Insert a new service submission (contact, verification, etc.)."""
-    conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
 
-    query = """
-        INSERT INTO services (telegram_id, service_type, message)
-        VALUES (%s, %s, %s)
-    """
-    values = (str(telegram_id), service_type, message)
-
-    cursor.execute(query, values)
+def update_request_status(request_id, status):
+    conn = connection_pool.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE request SET status = %s WHERE id = %s", (status, request_id))
     conn.commit()
-    service_id = cursor.lastrowid
-
     cursor.close()
     conn.close()
-    return service_id
 
-def get_services():
-    """Retrieve all service submissions."""
-    conn = get_connection()
+
+def delete_request(request_id):
+    conn = connection_pool.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM request WHERE id = %s", (request_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+# Provide Table
+def add_provide(user_id, service_category, subservice, description, username):
+    conn = connection_pool.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO provide (user_id, service_category, subservice, description, username)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (user_id, service_category, subservice, description, username))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+def get_provides_by_user(user_id):
+    conn = connection_pool.get_connection()
     cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM services ORDER BY created_at DESC")
-    results = cursor.fetchall()
+    cursor.execute("SELECT * FROM provide WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
+    rows = cursor.fetchall()
     cursor.close()
     conn.close()
-    return results
+    return rows
+
+
+def delete_provide(provide_id):
+    conn = connection_pool.get_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM provide WHERE id = %s", (provide_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
