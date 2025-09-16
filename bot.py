@@ -3,14 +3,14 @@ import os
 import json
 import logging
 from dotenv import load_dotenv
-from telegram import Update, ReplyKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
     ContextTypes,
-    ConversationHandler,
 )
 
 # Local imports
@@ -39,7 +39,27 @@ CHOOSING, REQUEST_DETAILS, REQUEST_USERNAME, REQUEST_CONFIRM = range(4)
 # Session memory
 user_sessions = {}
 
-# -------- Handlers -------- #
+# ------------------- Helper Functions ------------------- #
+async def send_node(update: Update, context: ContextTypes.DEFAULT_TYPE, node_key: str):
+    """Send a node from JSON conversation"""
+    node = CONVO[node_key]
+    user_sessions[update.effective_user.id]["state"] = node_key
+
+    text = node.get("message") or node.get("description") or "..."
+
+    options = node.get("options", [])
+    reply_markup = None
+    if options:
+        # Build inline keyboard
+        keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in options]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
+    if update.message:
+        await update.message.reply_text(text, reply_markup=reply_markup)
+    elif update.callback_query:
+        await update.callback_query.edit_message_text(text=text, reply_markup=reply_markup)
+
+# ------------------- Handlers ------------------- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the bot"""
     state = "start"
@@ -47,44 +67,20 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await send_node(update, context, state)
 
 
-async def send_node(update: Update, context: ContextTypes.DEFAULT_TYPE, node_key: str):
-    """Send a node from JSON conversation"""
-    node = CONVO[node_key]
-    user_sessions[update.effective_user.id]["state"] = node_key
-
-    if "message" in node:
-        text = node["message"]
-    elif "description" in node:
-        text = node["description"]
-    else:
-        text = "..."
-
-    options = node.get("options", [])
-    reply_markup = ReplyKeyboardMarkup(
-        [options[i:i + 2] for i in range(0, len(options), 2)],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    ) if options else None
-
-    if update.message:
-        await update.message.reply_text(text, reply_markup=reply_markup)
-    else:
-        await update.callback_query.message.reply_text(text, reply_markup=reply_markup)
-
-
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Handle text responses"""
-    user_id = update.effective_user.id
-    text = update.message.text.strip()
+async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle inline button presses"""
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    text = query.data.strip()
     session = user_sessions.get(user_id, {"state": "start"})
     state = session["state"]
 
-    # If state has "next", move forward
     node = CONVO.get(state, {})
     if "next" in node and text in node["next"]:
         next_state = node["next"][text]
 
-        # Handle request flow
+        # ---------------- Request Flow ---------------- #
         if next_state == "request_details":
             session["project_type"] = text
             user_sessions[user_id] = session
@@ -102,20 +98,14 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 project_details=session.get("details", ""),
                 username=session.get("username", "")
             )
-            await update.message.reply_text(
-                text_summary,
-                reply_markup=ReplyKeyboardMarkup(
-                    [summary_node["options"]],
-                    resize_keyboard=True,
-                    one_time_keyboard=True
-                )
-            )
+            keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in summary_node["options"]]
+            await query.edit_message_text(text_summary, reply_markup=InlineKeyboardMarkup(keyboard))
             session["state"] = "request_summary"
             user_sessions[user_id] = session
             return
 
         elif next_state == "request_confirmation":
-            # Save to DB
+            # Save request to DB
             database.add_request(
                 user_id,
                 session.get("project_type", ""),
@@ -125,7 +115,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await send_node(update, context, "request_confirmation")
             return
 
-        # Handle provide service flow
+        # ---------------- Provide Flow ---------------- #
         if next_state.startswith("services_") and "description" in CONVO[next_state]:
             service_category = state.replace("services_", "")
             subservice = text
@@ -136,18 +126,23 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 service_category=service_category,
                 subservice=subservice,
                 description=description,
-                username=update.effective_user.username or ""
+                username=query.from_user.username or ""
             )
-            await update.message.reply_text(
-                f"✅ Your service has been saved:\n\n{subservice}\n{description}"
-            )
+            await query.edit_message_text(f"✅ Your service has been saved:\n\n{subservice}\n{description}")
             return
 
         # Generic navigation
         await send_node(update, context, next_state)
         return
 
-    # Handle free text input inside request flow
+# ------------------- Free Text Handlers ------------------- #
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle free text inputs for request details & username"""
+    user_id = update.effective_user.id
+    text = update.message.text.strip()
+    session = user_sessions.get(user_id, {"state": "start"})
+    state = session["state"]
+
     if state == "request_details":
         session["details"] = text
         user_sessions[user_id] = session
@@ -160,9 +155,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_node(update, context, "request_summary")
         return
 
-
+# ------------------- Command Handlers ------------------- #
 async def my_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Show user requests"""
+    """Show user's active requests"""
     user_id = update.effective_user.id
     rows = database.get_requests_by_user(user_id)
 
@@ -181,16 +176,19 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show help"""
     await send_node(update, context, "help")
 
-
-# -------- Main -------- #
+# ------------------- Main ------------------- #
 def main():
     database.init_db()
     app = Application.builder().token(TOKEN).build()
 
+    # Command handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("myrequests", my_requests))
+
+    # Message & callback handlers
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    app.add_handler(CallbackQueryHandler(handle_callback))
 
     logger.info("🚀 Bot started...")
     app.run_polling()
