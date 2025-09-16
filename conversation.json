@@ -1,283 +1,120 @@
 {
   "start": {
-    "message": "Welcome to Crypto Services Bot! 🚀\nChoose a crypto service category to explore or request a project:",
-    "options": [
-      "Smart Contracts",
-      "Token Development",
-      "NFTs & Metaverse",
-      "DApps & Web3",
-      "Trading & Automation",
-      "Auditing & Security",
-      "Consulting & Research",
-      "Marketing & Community",
-      "Exchange & Wallet Setup",
-      "My Requests",
-      "Help"
-    ],
+    "message": "Welcome to Crypto Services Bot! 🚀\nWould you like to provide a service or request a service?",
+    "options": ["Provide a Service", "Request a Service", "My Requests", "Help"],
     "next": {
-      "Smart Contracts": "services_smartcontracts",
-      "Token Development": "services_tokens",
-      "NFTs & Metaverse": "services_nfts",
-      "DApps & Web3": "services_dapps",
-      "Trading & Automation": "services_trading",
-      "Auditing & Security": "services_audit",
-      "Consulting & Research": "services_consulting",
-      "Marketing & Community": "services_marketing",
-      "Exchange & Wallet Setup": "services_exchange",
+      "Provide a Service": "services_menu",
+      "Request a Service": "services_menu",
       "My Requests": "my_requests",
       "Help": "help"
     }
   },
 
-  "services_smartcontracts": {
-    "message": "Smart Contracts: Select a subservice",
-    "options": [
-      "ERC20 / ERC721 / ERC1155 Contracts",
-      "DeFi Protocols (Staking, Farming)",
-      "DAO Governance Contracts",
-      "Custom Contract Logic",
-      "Back to Menu"
-    ],
+  "services_menu": {
+    "message": "Select a service category:",
+    "options": ["Web3", "AI", "Marketing", "Back to Start"],
     "next": {
-      "ERC20 / ERC721 / ERC1155 Contracts": "services_smartcontracts_erc",
-      "DeFi Protocols (Staking, Farming)": "services_smartcontracts_defi",
-      "DAO Governance Contracts": "services_smartcontracts_dao",
-      "Custom Contract Logic": "services_smartcontracts_custom",
-      "Back to Menu": "start"
+      "Web3": "services_web3",
+      "AI": "services_ai",
+      "Marketing": "services_marketing",
+      "Back to Start": "start"
     }
   },
 
-  "services_smartcontracts_erc": {
-    "description": "ERC20 / ERC721 / ERC1155 Contracts:\nWe create secure and functional ERC token contracts customized for your project."
-  },
-  "services_smartcontracts_defi": {
-    "description": "DeFi Protocols (Staking, Farming):\nDesign and deploy DeFi protocols, including staking, farming, and liquidity pools."
-  },
-  "services_smartcontracts_dao": {
-    "description": "DAO Governance Contracts:\nDevelop DAO smart contracts for decentralized governance and voting."
-  },
-  "services_smartcontracts_custom": {
-    "description": "Custom Contract Logic:\nCustom smart contract development tailored for unique blockchain solutions."
-  },
-
-  "services_tokens": {
-    "message": "Token Development: Select a subservice",
+  "services_web3": {
+    "message": "Web3 Services: Select a subservice",
     "options": [
-      "ERC20 Tokens",
-      "BEP20 Tokens",
-      "Deflationary Tokens",
-      "Stablecoins",
-      "Utility & Governance Tokens",
-      "Multi-chain Deployment",
-      "Back to Menu"
+      "Smart Contracts",
+      "DApps",
+      "NFTs",
+      "Token Development",
+      "Back to Categories"
     ],
     "next": {
-      "ERC20 Tokens": "services_tokens_erc20",
-      "BEP20 Tokens": "services_tokens_bep20",
-      "Deflationary Tokens": "services_tokens_deflationary",
-      "Stablecoins": "services_tokens_stable",
-      "Utility & Governance Tokens": "services_tokens_utility",
-      "Multi-chain Deployment": "services_tokens_multichain",
-      "Back to Menu": "start"
+      "Smart Contracts": "services_web3_smartcontracts",
+      "DApps": "services_web3_dapps",
+      "NFTs": "services_web3_nfts",
+      "Token Development": "services_web3_tokens",
+      "Back to Categories": "services_menu"
     }
   },
-  "services_tokens_erc20": {
-    "description": "ERC20 Tokens:\nWe create secure ERC20 tokens with custom features for your project."
+  "services_web3_smartcontracts": {
+    "description": "Smart Contracts:\nWe build secure, custom contracts including ERC20, ERC721, DeFi protocols, and DAOs."
   },
-  "services_tokens_bep20": {
-    "description": "BEP20 Tokens:\nDeploy BEP20 tokens on Binance Smart Chain with full functionality and safety."
+  "services_web3_dapps": {
+    "description": "DApps:\nCustom decentralized apps with Web3 integrations and contract interactions."
   },
-  "services_tokens_deflationary": {
-    "description": "Deflationary Tokens:\nCustom tokenomics with burning mechanisms to create scarcity and value."
+  "services_web3_nfts": {
+    "description": "NFTs:\nNFT minting, marketplaces, and P2E game asset development."
   },
-  "services_tokens_stable": {
-    "description": "Stablecoins:\nCreate stablecoins pegged to fiat or crypto with secure smart contract logic."
-  },
-  "services_tokens_utility": {
-    "description": "Utility & Governance Tokens:\nDesign tokens for governance, staking, and platform utility."
-  },
-  "services_tokens_multichain": {
-    "description": "Multi-chain Deployment:\nDeploy your tokens across multiple blockchains seamlessly."
+  "services_web3_tokens": {
+    "description": "Token Development:\nERC20, BEP20, stablecoins, and multi-chain token deployments."
   },
 
-  "services_nfts": {
-    "message": "NFTs & Metaverse: Select a subservice",
+  "services_ai": {
+    "message": "AI Services: Select a subservice",
     "options": [
-      "NFT Minting Platforms",
-      "NFT Marketplace Integration",
-      "Generative Art NFTs",
-      "Play-to-Earn Game Assets",
-      "Virtual Land / Metaverse Integration",
-      "Back to Menu"
+      "AI Chatbots",
+      "AI-Powered NFTs",
+      "Trading & Automation",
+      "Research & Consulting",
+      "Back to Categories"
     ],
     "next": {
-      "NFT Minting Platforms": "services_nfts_minting",
-      "NFT Marketplace Integration": "services_nfts_marketplace",
-      "Generative Art NFTs": "services_nfts_generative",
-      "Play-to-Earn Game Assets": "services_nfts_gameassets",
-      "Virtual Land / Metaverse Integration": "services_nfts_virtual",
-      "Back to Menu": "start"
+      "AI Chatbots": "services_ai_chatbots",
+      "AI-Powered NFTs": "services_ai_nfts",
+      "Trading & Automation": "services_ai_trading",
+      "Research & Consulting": "services_ai_research",
+      "Back to Categories": "services_menu"
     }
   },
-  "services_nfts_minting": {
-    "description": "NFT Minting Platforms:\nWe develop NFT minting platforms with custom smart contracts and marketplace integration."
+  "services_ai_chatbots": {
+    "description": "AI Chatbots:\nConversational AI bots for support, communities, and automation."
   },
-  "services_nfts_marketplace": {
-    "description": "NFT Marketplace Integration:\nIntegrate NFTs with marketplaces like OpenSea or custom platforms."
+  "services_ai_nfts": {
+    "description": "AI-Powered NFTs:\nDynamic NFTs that evolve with user interaction and AI models."
   },
-  "services_nfts_generative": {
-    "description": "Generative Art NFTs:\nCreate generative NFT collections using smart contract-driven algorithms."
+  "services_ai_trading": {
+    "description": "Trading & Automation:\nAI trading bots, portfolio automation, and algorithmic strategies."
   },
-  "services_nfts_gameassets": {
-    "description": "Play-to-Earn Game Assets:\nDevelop NFTs for P2E games and in-game economies."
-  },
-  "services_nfts_virtual": {
-    "description": "Virtual Land / Metaverse Integration:\nIntegrate virtual land and assets into metaverse platforms."
-  },
-
-  "services_dapps": {
-    "message": "DApps & Web3: Select a subservice",
-    "options": [
-      "Web3 Integration",
-      "Custom DApp Development",
-      "Smart Contract Interaction",
-      "Back to Menu"
-    ],
-    "next": {
-      "Web3 Integration": "services_dapps_web3",
-      "Custom DApp Development": "services_dapps_custom",
-      "Smart Contract Interaction": "services_dapps_contracts",
-      "Back to Menu": "start"
-    }
-  },
-  "services_dapps_web3": {
-    "description": "Web3 Integration:\nIntegrate your application with Ethereum and other blockchain networks."
-  },
-  "services_dapps_custom": {
-    "description": "Custom DApp Development:\nDevelop decentralized applications tailored to your business requirements."
-  },
-  "services_dapps_contracts": {
-    "description": "Smart Contract Interaction:\nConnect your DApp with smart contracts for seamless blockchain functionality."
-  },
-
-  "services_trading": {
-    "message": "Trading & Automation: Select a subservice",
-    "options": [
-      "Trading Bots",
-      "Algorithmic Strategies",
-      "Portfolio Automation",
-      "Back to Menu"
-    ],
-    "next": {
-      "Trading Bots": "services_trading_bots",
-      "Algorithmic Strategies": "services_trading_algo",
-      "Portfolio Automation": "services_trading_portfolio",
-      "Back to Menu": "start"
-    }
-  },
-  "services_trading_bots": {
-    "description": "Trading Bots:\nDevelop custom trading bots for automated strategies and execution."
-  },
-  "services_trading_algo": {
-    "description": "Algorithmic Strategies:\nDesign algorithmic trading strategies for crypto markets."
-  },
-  "services_trading_portfolio": {
-    "description": "Portfolio Automation:\nAutomate portfolio management and rebalancing for crypto assets."
-  },
-
-  "services_audit": {
-    "message": "Auditing & Security: Select a subservice",
-    "options": [
-      "Smart Contract Audits",
-      "Security Assessments",
-      "Back to Menu"
-    ],
-    "next": {
-      "Smart Contract Audits": "services_audit_contracts",
-      "Security Assessments": "services_audit_security",
-      "Back to Menu": "start"
-    }
-  },
-  "services_audit_contracts": {
-    "description": "Smart Contract Audits:\nConduct comprehensive audits to ensure contract security and correctness."
-  },
-  "services_audit_security": {
-    "description": "Security Assessments:\nEvaluate the security of your blockchain applications and infrastructure."
-  },
-
-  "services_consulting": {
-    "message": "Consulting & Research: Select a subservice",
-    "options": [
-      "Project Advisory",
-      "Market Research",
-      "Back to Menu"
-    ],
-    "next": {
-      "Project Advisory": "services_consulting_advisory",
-      "Market Research": "services_consulting_research",
-      "Back to Menu": "start"
-    }
-  },
-  "services_consulting_advisory": {
-    "description": "Project Advisory:\nGet expert guidance for your blockchain and crypto projects."
-  },
-  "services_consulting_research": {
-    "description": "Market Research:\nDetailed research and analysis of blockchain markets and trends."
+  "services_ai_research": {
+    "description": "Research & Consulting:\nAI-driven insights, advisory, and technical consulting."
   },
 
   "services_marketing": {
-    "message": "Marketing & Community: Select a subservice",
+    "message": "Marketing Services: Select a subservice",
     "options": [
       "Community Management",
       "Marketing Campaigns",
-      "Back to Menu"
+      "Advisory & Growth",
+      "Back to Categories"
     ],
     "next": {
       "Community Management": "services_marketing_community",
       "Marketing Campaigns": "services_marketing_campaigns",
-      "Back to Menu": "start"
+      "Advisory & Growth": "services_marketing_growth",
+      "Back to Categories": "services_menu"
     }
   },
   "services_marketing_community": {
-    "description": "Community Management:\nManage and grow your crypto community effectively."
+    "description": "Community Management:\nBuild and manage crypto communities with engagement strategies."
   },
   "services_marketing_campaigns": {
-    "description": "Marketing Campaigns:\nLaunch marketing campaigns to promote your blockchain project."
+    "description": "Marketing Campaigns:\nEnd-to-end campaigns for blockchain projects and token launches."
   },
-
-  "services_exchange": {
-    "message": "Exchange & Wallet Setup: Select a subservice",
-    "options": [
-      "Exchange Integration",
-      "Wallet Setup",
-      "Back to Menu"
-    ],
-    "next": {
-      "Exchange Integration": "services_exchange_integration",
-      "Wallet Setup": "services_exchange_wallet",
-      "Back to Menu": "start"
-    }
-  },
-  "services_exchange_integration": {
-    "description": "Exchange Integration:\nIntegrate your project with crypto exchanges for trading functionality."
-  },
-  "services_exchange_wallet": {
-    "description": "Wallet Setup:\nSetup secure wallets and handle crypto transactions efficiently."
+  "services_marketing_growth": {
+    "description": "Advisory & Growth:\nGuidance on project positioning, scaling, and partnerships."
   },
 
   "request_details": {
     "message": "Please describe your project requirements in detail:",
     "options": ["Cancel"],
-    "next": {
-      "Cancel": "start"
-    }
+    "next": { "Cancel": "start" }
   },
   "request_username": {
     "message": "Please provide your Telegram username (without @):",
     "options": ["Cancel"],
-    "next": {
-      "Cancel": "start"
-    }
+    "next": { "Cancel": "start" }
   },
   "request_summary": {
     "message": "Here is your project summary:\n\nProject Type: {project_type}\nDetails: {project_details}\nUsername: @{username}\n\nDo you want to confirm?",
@@ -295,18 +132,15 @@
       "Back to Menu": "start"
     }
   },
+
   "my_requests": {
     "message": "Here are your active project requests:",
     "options": ["Back to Menu"],
-    "next": {
-      "Back to Menu": "start"
-    }
+    "next": { "Back to Menu": "start" }
   },
   "help": {
     "message": "Available commands:\n/start - Restart bot\n/cancel - Cancel current action",
     "options": ["Back to Menu"],
-    "next": {
-      "Back to Menu": "start"
-    }
+    "next": { "Back to Menu": "start" }
   }
 }
