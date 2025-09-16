@@ -33,9 +33,6 @@ logger = logging.getLogger(__name__)
 with open("conversation.json", "r", encoding="utf-8") as f:
     CONVO = json.load(f)
 
-# States
-CHOOSING, REQUEST_DETAILS, REQUEST_USERNAME, REQUEST_CONFIRM = range(4)
-
 # Session memory
 user_sessions = {}
 
@@ -50,7 +47,6 @@ async def send_node(update: Update, context: ContextTypes.DEFAULT_TYPE, node_key
     options = node.get("options", [])
     reply_markup = None
     if options:
-        # Build inline keyboard
         keyboard = [[InlineKeyboardButton(opt, callback_data=opt)] for opt in options]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
@@ -63,7 +59,7 @@ async def send_node(update: Update, context: ContextTypes.DEFAULT_TYPE, node_key
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Start the bot"""
     state = "start"
-    user_sessions[update.effective_user.id] = {"state": state}
+    user_sessions[update.effective_user.id] = {"state": state, "flow_type": None}
     await send_node(update, context, state)
 
 
@@ -73,25 +69,34 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     text = query.data.strip()
-    session = user_sessions.get(user_id, {"state": "start"})
+    session = user_sessions.get(user_id, {"state": "start", "flow_type": None})
     state = session["state"]
 
     node = CONVO.get(state, {})
+
+    # Track flow type at start
+    if state == "start":
+        if text == "Request a Service":
+            session["flow_type"] = "request"
+        elif text == "Provide a Service":
+            session["flow_type"] = "provide"
+        user_sessions[user_id] = session
+
     if "next" in node and text in node["next"]:
         next_state = node["next"][text]
 
         # ---------------- Request Flow ---------------- #
-        if next_state == "request_details":
+        if next_state == "request_details" and session.get("flow_type") == "request":
             session["project_type"] = text
             user_sessions[user_id] = session
             await send_node(update, context, "request_details")
             return
 
-        elif next_state == "request_username":
+        elif next_state == "request_username" and session.get("flow_type") == "request":
             await send_node(update, context, "request_username")
             return
 
-        elif next_state == "request_summary":
+        elif next_state == "request_summary" and session.get("flow_type") == "request":
             summary_node = CONVO["request_summary"]
             text_summary = summary_node["message"].format(
                 project_type=session.get("project_type", ""),
@@ -104,7 +109,7 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             user_sessions[user_id] = session
             return
 
-        elif next_state == "request_confirmation":
+        elif next_state == "request_confirmation" and session.get("flow_type") == "request":
             # Save request to DB
             database.add_request(
                 user_id,
@@ -117,19 +122,20 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # ---------------- Provide Flow ---------------- #
         if next_state.startswith("services_") and "description" in CONVO[next_state]:
-            service_category = state.replace("services_", "")
-            subservice = text
-            description = CONVO[next_state]["description"]
+            if session.get("flow_type") == "provide":
+                service_category = state.replace("services_", "")
+                subservice = text
+                description = CONVO[next_state]["description"]
 
-            database.add_provide(
-                user_id=user_id,
-                service_category=service_category,
-                subservice=subservice,
-                description=description,
-                username=query.from_user.username or ""
-            )
-            await query.edit_message_text(f"✅ Your service has been saved:\n\n{subservice}\n{description}")
-            return
+                database.add_provide(
+                    user_id=user_id,
+                    service_category=service_category,
+                    subservice=subservice,
+                    description=description,
+                    username=query.from_user.username or ""
+                )
+                await query.edit_message_text(f"✅ Your service has been saved:\n\n{subservice}\n{description}")
+                return
 
         # Generic navigation
         await send_node(update, context, next_state)
@@ -140,16 +146,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle free text inputs for request details & username"""
     user_id = update.effective_user.id
     text = update.message.text.strip()
-    session = user_sessions.get(user_id, {"state": "start"})
+    session = user_sessions.get(user_id, {"state": "start", "flow_type": None})
     state = session["state"]
 
-    if state == "request_details":
+    if state == "request_details" and session.get("flow_type") == "request":
         session["details"] = text
         user_sessions[user_id] = session
         await send_node(update, context, "request_username")
         return
 
-    if state == "request_username":
+    if state == "request_username" and session.get("flow_type") == "request":
         session["username"] = text
         user_sessions[user_id] = session
         await send_node(update, context, "request_summary")
