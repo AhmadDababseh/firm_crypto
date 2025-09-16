@@ -1,137 +1,200 @@
+# bot.py
 import os
 import json
+import logging
 from dotenv import load_dotenv
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
+from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
-    CallbackQueryHandler,
     MessageHandler,
-    ContextTypes,
     filters,
+    ContextTypes,
     ConversationHandler,
 )
-import database  # <- our db file
 
-# ----------------- LOAD ENV -----------------
+# Local imports
+import database
+
+# Load environment
 load_dotenv()
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TOKEN = os.getenv("TOKEN")
+if not TOKEN:
+    raise ValueError("❌ BOT_TOKEN not set in .env")
 
-# ----------------- STATES -----------------
-REPORT_CHOOSING, REPORT_TYPING, CONTACT_TYPING = range(3)
+# Logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-# Load menu JSON
-with open("menu.json", "r", encoding="utf-8") as f:
-    MENU = json.load(f)
+# Load JSON conversation file
+with open("conversation.json", "r", encoding="utf-8") as f:
+    CONVO = json.load(f)
 
-# Store temporary user reports before saving to DB
-user_reports = {}
-user_services = {}
+# States
+CHOOSING, REQUEST_DETAILS, REQUEST_USERNAME, REQUEST_CONFIRM = range(4)
 
-# ----------------- REPORT MENU -----------------
+# Session memory
+user_sessions = {}
+
+# -------- Handlers -------- #
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Welcome! Use /report to submit a scam or /contact to reach us.")
+    """Start the bot"""
+    state = "start"
+    user_sessions[update.effective_user.id] = {"state": state}
+    await send_node(update, context, state)
 
-async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    telegram_id = update.message.from_user.id
-    user_reports[telegram_id] = {k: None for k in MENU.keys()}  # reset fields
 
-    return await show_report_menu(update, context)
+async def send_node(update: Update, context: ContextTypes.DEFAULT_TYPE, node_key: str):
+    """Send a node from JSON conversation"""
+    node = CONVO[node_key]
+    user_sessions[update.effective_user.id]["state"] = node_key
 
-async def show_report_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    telegram_id = update.effective_user.id
-    report_data = user_reports.get(telegram_id, {})
-
-    keyboard = []
-    for key, field in MENU.items():
-        icon = "✅" if report_data.get(key) else "❌"
-        keyboard.append([InlineKeyboardButton(f"{icon} {field['label']}", callback_data=key)])
-
-    keyboard.append([InlineKeyboardButton("✅ Submit Report", callback_data="submit_report")])
-
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    if update.callback_query:
-        await update.callback_query.edit_message_text("Fill in the scam report fields:", reply_markup=reply_markup)
+    if "message" in node:
+        text = node["message"]
+    elif "description" in node:
+        text = node["description"]
     else:
-        await update.message.reply_text("Fill in the scam report fields:", reply_markup=reply_markup)
+        text = "..."
 
-    return REPORT_CHOOSING
+    options = node.get("options", [])
+    reply_markup = ReplyKeyboardMarkup(
+        [options[i:i + 2] for i in range(0, len(options), 2)],
+        resize_keyboard=True,
+        one_time_keyboard=True
+    ) if options else None
 
-async def menu_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    field = query.data
+    if update.message:
+        await update.message.reply_text(text, reply_markup=reply_markup)
+    else:
+        await update.callback_query.message.reply_text(text, reply_markup=reply_markup)
 
-    if field == "submit_report":
-        telegram_id = update.effective_user.id
-        report_data = user_reports.get(telegram_id)
 
-        # Check required fields
-        if not report_data.get("scam_name") or not report_data.get("scam_link"):
-            await query.answer("Scam name and scam link are required!")
-            return REPORT_CHOOSING
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle text responses"""
+    user_id = update.effective_user.id
+    text = update.message.text.strip()
+    session = user_sessions.get(user_id, {"state": "start"})
+    state = session["state"]
 
-        # Save to DB
-        database.add_request(telegram_id, report_data)
+    # If state has "next", move forward
+    node = CONVO.get(state, {})
+    if "next" in node and text in node["next"]:
+        next_state = node["next"][text]
 
-        await query.edit_message_text("✅ Scam report submitted successfully!")
-        return ConversationHandler.END
+        # Handle request flow
+        if next_state == "request_details":
+            session["project_type"] = text
+            user_sessions[user_id] = session
+            await send_node(update, context, "request_details")
+            return
 
-    context.user_data["current_field"] = field
-    await query.message.reply_text(f"Please enter {MENU[field]['label']}:")
-    return REPORT_TYPING
+        elif next_state == "request_username":
+            await send_node(update, context, "request_username")
+            return
 
-async def received_field(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    telegram_id = update.message.from_user.id
-    field = context.user_data["current_field"]
-    value = update.message.text
+        elif next_state == "request_summary":
+            summary_node = CONVO["request_summary"]
+            text_summary = summary_node["message"].format(
+                project_type=session.get("project_type", ""),
+                project_details=session.get("details", ""),
+                username=session.get("username", "")
+            )
+            await update.message.reply_text(
+                text_summary,
+                reply_markup=ReplyKeyboardMarkup(
+                    [summary_node["options"]],
+                    resize_keyboard=True,
+                    one_time_keyboard=True
+                )
+            )
+            session["state"] = "request_summary"
+            user_sessions[user_id] = session
+            return
 
-    user_reports[telegram_id][field] = value
-    return await show_report_menu(update, context)
+        elif next_state == "request_confirmation":
+            # Save to DB
+            database.add_request(
+                user_id,
+                session.get("project_type", ""),
+                session.get("details", ""),
+                session.get("username", "")
+            )
+            await send_node(update, context, "request_confirmation")
+            return
 
-# ----------------- CONTACT -----------------
-async def contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me your message for Contact Us:")
-    return CONTACT_TYPING
+        # Handle provide service flow
+        if next_state.startswith("services_") and "description" in CONVO[next_state]:
+            service_category = state.replace("services_", "")
+            subservice = text
+            description = CONVO[next_state]["description"]
 
-async def received_contact(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    telegram_id = update.message.from_user.id
-    message = update.message.text
+            database.add_provide(
+                user_id=user_id,
+                service_category=service_category,
+                subservice=subservice,
+                description=description,
+                username=update.effective_user.username or ""
+            )
+            await update.message.reply_text(
+                f"✅ Your service has been saved:\n\n{subservice}\n{description}"
+            )
+            return
 
-    # Save contact into services table
-    database.add_service(telegram_id, "contact", message)
+        # Generic navigation
+        await send_node(update, context, next_state)
+        return
 
-    await update.message.reply_text("✅ Your message has been sent!")
-    return ConversationHandler.END
+    # Handle free text input inside request flow
+    if state == "request_details":
+        session["details"] = text
+        user_sessions[user_id] = session
+        await send_node(update, context, "request_username")
+        return
 
-# ----------------- MAIN -----------------
+    if state == "request_username":
+        session["username"] = text
+        user_sessions[user_id] = session
+        await send_node(update, context, "request_summary")
+        return
+
+
+async def my_requests(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show user requests"""
+    user_id = update.effective_user.id
+    rows = database.get_requests_by_user(user_id)
+
+    if not rows:
+        await update.message.reply_text("📭 You have no active requests.")
+        return
+
+    msg = "📌 Your active requests:\n\n"
+    for r in rows:
+        msg += f"ID: {r['id']} | {r['project_type']} | {r['status']}\nDetails: {r['details']}\n\n"
+
+    await update.message.reply_text(msg)
+
+
+async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show help"""
+    await send_node(update, context, "help")
+
+
+# -------- Main -------- #
 def main():
-    database.init_db()  # ensure tables exist
+    database.init_db()
     app = Application.builder().token(TOKEN).build()
 
-    report_conv = ConversationHandler(
-        entry_points=[CommandHandler("report", report)],
-        states={
-            REPORT_CHOOSING: [CallbackQueryHandler(menu_choice)],
-            REPORT_TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_field)],
-        },
-        fallbacks=[CommandHandler("start", start)],
-    )
-
-    contact_conv = ConversationHandler(
-        entry_points=[CommandHandler("contact", contact)],
-        states={
-            CONTACT_TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, received_contact)],
-        },
-        fallbacks=[CommandHandler("start", start)],
-    )
-
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(report_conv)
-    app.add_handler(contact_conv)
+    app.add_handler(CommandHandler("help", help_cmd))
+    app.add_handler(CommandHandler("myrequests", my_requests))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    print("Bot is running...")
+    logger.info("🚀 Bot started...")
     app.run_polling()
+
 
 if __name__ == "__main__":
     main()
