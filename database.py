@@ -1,142 +1,175 @@
-# database.py
+import os
+import urllib.parse
+import logging
 import mysql.connector
 from mysql.connector import pooling
-from urllib.parse import urlparse
-import os
+from datetime import datetime
 from dotenv import load_dotenv
-
 load_dotenv()
+# -------------------------------------------------------
+# Configuration
+# -------------------------------------------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Railway gives you DATABASE_URL (MySQL)
-DATABASE_URL = os.getenv("DATABASE_URL")
+# Railway provides a single connection URL, e.g.:
+# mysql://username:password@containers-us-west-123.railway.app:3306/mydb
+MYSQL_URL = os.getenv("DATABASE_URL")
+if not MYSQL_URL:
+    raise SystemExit("❌ MYSQL_URL not found in environment variables")
 
-if not DATABASE_URL:
-    raise ValueError("❌ DATABASE_URL not set in environment variables.")
+url = urllib.parse.urlparse(MYSQL_URL)
 
-# Parse DATABASE_URL
-url = urlparse(DATABASE_URL)
-
-dbconfig = {
+DB_CONFIG = {
     "host": url.hostname,
+    "port": url.port or 3306,
     "user": url.username,
     "password": url.password,
-    "database": url.path[1:],  # remove leading '/'
-    "port": url.port or 3306
+    "database": url.path.lstrip("/"),
+    "autocommit": True,
 }
 
-# Connection Pool
-connection_pool = pooling.MySQLConnectionPool(
-    pool_name="mypool",
-    pool_size=5,
-    **dbconfig
-)
+# Create a small connection pool for re-use
+POOL = pooling.MySQLConnectionPool(pool_name="bot_pool", pool_size=5, **DB_CONFIG)
 
+
+def get_conn():
+    """Fetch a pooled DB connection."""
+    return POOL.get_connection()
+
+
+# -------------------------------------------------------
+# Database Initialization
+# -------------------------------------------------------
 def init_db():
-    """Initialize database tables if not exist."""
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor()
+    """
+    Create required tables if they don't exist.
+    Tables:
+        - requests   : user service requests
+        - submissions: provider service submissions
+    """
+    create_requests = """
+    CREATE TABLE IF NOT EXISTS requests (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        username VARCHAR(255),
+        category VARCHAR(255),
+        service VARCHAR(255),
+        details TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """
 
-    # Request table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS request (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            project_type VARCHAR(255) NOT NULL,
-            details TEXT NOT NULL,
-            username VARCHAR(255),
-            status VARCHAR(50) DEFAULT 'active',
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    create_submissions = """
+    CREATE TABLE IF NOT EXISTS submissions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT NOT NULL,
+        username VARCHAR(255),
+        category VARCHAR(255),
+        service VARCHAR(255),
+        experience TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """
+
+    conn = get_conn()
+    try:
+        cur = conn.cursor()
+        cur.execute(create_requests)
+        cur.execute(create_submissions)
+        conn.commit()
+        logger.info("✅ Tables ensured (requests, submissions).")
+    finally:
+        conn.close()
+
+
+# -------------------------------------------------------
+# Insert Helpers
+# -------------------------------------------------------
+def add_request(user_id: int, username: str, category: str, service: str, details: str):
+    """
+    Store a new request into the requests table.
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            INSERT INTO requests (user_id, username, category, service, details)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (user_id, username, category, service, details),
         )
-    """)
+        conn.commit()
+        logger.info(f"💾 Added request for user {user_id}")
+    finally:
+        conn.close()
 
-    # Provide table
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS provide (
-            id INT AUTO_INCREMENT PRIMARY KEY,
-            user_id BIGINT NOT NULL,
-            service_category VARCHAR(255) NOT NULL,
-            subservice VARCHAR(255) NOT NULL,
-            description TEXT,
-            username VARCHAR(255),
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+def add_submission(user_id: int, username: str, category: str, service: str, experience: str):
+    """
+    Store a new submission into the submissions table.
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            INSERT INTO submissions (user_id, username, category, service, experience)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (user_id, username, category, service, experience),
         )
-    """)
-
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-# ---------------- CRUD HELPERS ---------------- #
-
-# Request Table
-def add_request(user_id, project_type, details, username):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO request (user_id, project_type, details, username)
-        VALUES (%s, %s, %s, %s)
-    """, (user_id, project_type, details, username))
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+        logger.info(f"💾 Added submission for user {user_id}")
+    finally:
+        conn.close()
 
 
-def get_requests_by_user(user_id):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM request WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return rows
+# -------------------------------------------------------
+# Retrieval Helpers
+# -------------------------------------------------------
+def get_requests_by_user(user_id: int):
+    """
+    Return a list of all requests by a given user.
+    Each row is a dict with keys:
+    id, category, service, details, status, created_at
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id, category, service, details, status, created_at
+            FROM requests
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            """,
+            (user_id,),
+        )
+        return cur.fetchall()
+    finally:
+        conn.close()
 
 
-def update_request_status(request_id, status):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE request SET status = %s WHERE id = %s", (status, request_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-def delete_request(request_id):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM request WHERE id = %s", (request_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-# Provide Table
-def add_provide(user_id, service_category, subservice, description, username):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        INSERT INTO provide (user_id, service_category, subservice, description, username)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (user_id, service_category, subservice, description, username))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-
-def get_provides_by_user(user_id):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor(dictionary=True)
-    cursor.execute("SELECT * FROM provide WHERE user_id = %s ORDER BY created_at DESC", (user_id,))
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return rows
-
-
-def delete_provide(provide_id):
-    conn = connection_pool.get_connection()
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM provide WHERE id = %s", (provide_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
+def get_submissions_by_user(user_id: int):
+    """
+    Return a list of all submissions by a given user.
+    """
+    conn = get_conn()
+    try:
+        cur = conn.cursor(dictionary=True)
+        cur.execute(
+            """
+            SELECT id, category, service, experience, status, created_at
+            FROM submissions
+            WHERE user_id = %s
+            ORDER BY created_at DESC
+            """,
+            (user_id,),
+        )
+        return cur.fetchall()
+    finally:
+        conn.close()
