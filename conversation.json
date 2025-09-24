@@ -1,6 +1,6 @@
 {
   "start": {
-    "message": "Welcome to Crypto Services Bot! 🚀\nWould you like to provide a service or request a service?",
+    "message": "Welcome to Firm AI Services Bot! 🚀\nWould you like to provide a service or request a service?",
     "options": ["Provide a Service", "Request a Service", "My Requests", "Help"],
     "next": {
       "Provide a Service": "services_menu",
@@ -12,11 +12,11 @@
 
   "services_menu": {
     "message": "Select a service category:",
-    "options": ["Web3", "AI", "Marketing", "Back to Start"],
+    "options": ["Web3 Services", "AI Services", "Marketing Services", "Back to Start"],
     "next": {
-      "Web3": "services_web3",
-      "AI": "services_ai",
-      "Marketing": "services_marketing",
+      "Web3 Services": "services_web3",
+      "AI Services": "services_ai",
+      "Marketing Services": "services_marketing",
       "Back to Start": "start"
     }
   },
@@ -24,88 +24,166 @@
   "services_web3": {
     "message": "Web3 Services: Select a subservice",
     "options": [
-      "Smart Contracts",
-      "DApps",
-      "NFTs",
-      "Token Development",
+      "Smart Contract Development",
+      "NFTs & Metaverse",
+      "Market Making",
+      "dApps & DAOs",
+      "Tokenomics & Business",
+      "Security and Auditing",
+      "Other Web3 Services",
       "Back to Categories"
     ],
     "next": {
-      "Smart Contracts": "services_web3_smartcontracts",
-      "DApps": "services_web3_dapps",
-      "NFTs": "services_web3_nfts",
-      "Token Development": "services_web3_tokens",
+      "Smart Contract Development": "confirm_web3_smartcontract",
+      "NFTs & Metaverse": "confirm_web3_nfts",
+      "Market Making": "confirm_web3_market",
+      "dApps & DAOs": "confirm_web3_dapps",
+      "Tokenomics & Business": "confirm_web3_tokenomics",
+      "Security and Auditing": "confirm_web3_security",
+      "Other Web3 Services": "input_web3_other",
       "Back to Categories": "services_menu"
     }
-  },
-  "services_web3_smartcontracts": {
-    "description": "Smart Contracts:\nWe build secure, custom contracts including ERC20, ERC721, DeFi protocols, and DAOs."
-  },
-  "services_web3_dapps": {
-    "description": "DApps:\nCustom decentralized apps with Web3 integrations and contract interactions."
-  },
-  "services_web3_nfts": {
-    "description": "NFTs:\nNFT minting, marketplaces, and P2E game asset development."
-  },
-  "services_web3_tokens": {
-    "description": "Token Development:\nERC20, BEP20, stablecoins, and multi-chain token deployments."
   },
 
   "services_ai": {
     "message": "AI Services: Select a subservice",
     "options": [
-      "AI Chatbots",
-      "AI-Powered NFTs",
-      "Trading & Automation",
-      "Research & Consulting",
+      "AI NFT & Art Generators",
+      "AI Text/Image/Video Generator",
+      "AI Music Generator",
+      "AI Offline Services",
+      "Other AI Services",
       "Back to Categories"
     ],
     "next": {
-      "AI Chatbots": "services_ai_chatbots",
-      "AI-Powered NFTs": "services_ai_nfts",
-      "Trading & Automation": "services_ai_trading",
-      "Research & Consulting": "services_ai_research",
+      "AI NFT & Art Generators": "confirm_ai_nftart",
+      "AI Text/Image/Video Generator": "confirm_ai_textimage",
+      "AI Music Generator": "confirm_ai_music",
+      "AI Offline Services": "confirm_ai_offline",
+      "Other AI Services": "input_ai_other",
       "Back to Categories": "services_menu"
     }
-  },
-  "services_ai_chatbots": {
-    "description": "AI Chatbots:\nConversational AI bots for support, communities, and automation."
-  },
-  "services_ai_nfts": {
-    "description": "AI-Powered NFTs:\nDynamic NFTs that evolve with user interaction and AI models."
-  },
-  "services_ai_trading": {
-    "description": "Trading & Automation:\nAI trading bots, portfolio automation, and algorithmic strategies."
-  },
-  "services_ai_research": {
-    "description": "Research & Consulting:\nAI-driven insights, advisory, and technical consulting."
   },
 
   "services_marketing": {
     "message": "Marketing Services: Select a subservice",
     "options": [
-      "Community Management",
-      "Marketing Campaigns",
-      "Advisory & Growth",
+      "Social media campaigns and PR outreach",
+      "Community management on Telegram, Discord, and X",
+      "Influencer and KOL partnerships",
+      "Launchpad and exchange listing promotions",
+      "Branding, content creation, and storytelling",
+      "Other Marketing Services",
       "Back to Categories"
     ],
     "next": {
-      "Community Management": "services_marketing_community",
-      "Marketing Campaigns": "services_marketing_campaigns",
-      "Advisory & Growth": "services_marketing_growth",
+      "Social media campaigns and PR outreach": "confirm_marketing_social",
+      "Community management on Telegram, Discord, and X": "confirm_marketing_community",
+      "Influencer and KOL partnerships": "confirm_marketing_influencer",
+      "Launchpad and exchange listing promotions": "confirm_marketing_launchpad",
+      "Branding, content creation, and storytelling": "confirm_marketing_branding",
+      "Other Marketing Services": "input_marketing_other",
       "Back to Categories": "services_menu"
     }
   },
-  "services_marketing_community": {
-    "description": "Community Management:\nBuild and manage crypto communities with engagement strategies."
+
+  /* --- Confirmation Nodes (each includes Confirm/Cancel) --- */
+  "confirm_web3_smartcontract": {
+    "message": "You selected: Smart Contract Development.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_web3" }
   },
-  "services_marketing_campaigns": {
-    "description": "Marketing Campaigns:\nEnd-to-end campaigns for blockchain projects and token launches."
+  "confirm_web3_nfts": {
+    "message": "You selected: NFTs & Metaverse.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_web3" }
   },
-  "services_marketing_growth": {
-    "description": "Advisory & Growth:\nGuidance on project positioning, scaling, and partnerships."
+  "confirm_web3_market": {
+    "message": "You selected: Market Making.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_web3" }
+  },
+  "confirm_web3_dapps": {
+    "message": "You selected: dApps & DAOs.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_web3" }
+  },
+  "confirm_web3_tokenomics": {
+    "message": "You selected: Tokenomics & Business.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_web3" }
+  },
+  "confirm_web3_security": {
+    "message": "You selected: Security and Auditing.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_web3" }
   },
 
+  "confirm_ai_nftart": {
+    "message": "You selected: AI NFT & Art Generators.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_ai" }
+  },
+  "confirm_ai_textimage": {
+    "message": "You selected: AI Text/Image/Video Generator.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_ai" }
+  },
+  "confirm_ai_music": {
+    "message": "You selected: AI Music Generator.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_ai" }
+  },
+  "confirm_ai_offline": {
+    "message": "You selected: AI Offline Services.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_ai" }
+  },
+
+  "confirm_marketing_social": {
+    "message": "You selected: Social media campaigns and PR outreach.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_marketing" }
+  },
+  "confirm_marketing_community": {
+    "message": "You selected: Community management on Telegram, Discord, and X.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_marketing" }
+  },
+  "confirm_marketing_influencer": {
+    "message": "You selected: Influencer and KOL partnerships.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_marketing" }
+  },
+  "confirm_marketing_launchpad": {
+    "message": "You selected: Launchpad and exchange listing promotions.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_marketing" }
+  },
+  "confirm_marketing_branding": {
+    "message": "You selected: Branding, content creation, and storytelling.\nConfirm or cancel?",
+    "options": ["Confirm", "Cancel"],
+    "next": { "Confirm": "request_details", "Cancel": "services_marketing" }
+  },
+
+  /* --- Manual Input Nodes for 'Other' options --- */
+  "input_web3_other": {
+    "message": "Please type your Web3 service request in text:",
+    "options": ["Cancel"],
+    "next": { "Cancel": "services_web3" }
+  },
+  "input_ai_other": {
+    "message": "Please type your AI service request in text:",
+    "options": ["Cancel"],
+    "next": { "Cancel": "services_ai" }
+  },
+  "input_marketing_other": {
+    "message": "Please type your Marketing service request in text:",
+    "options": ["Cancel"],
+    "next": { "Cancel": "services_marketing" }
+  },
+
+  /* --- Common Request Flow --- */
   "request_details": {
     "message": "Please describe your project requirements in detail:",
     "options": ["Cancel"],
@@ -117,7 +195,7 @@
     "next": { "Cancel": "start" }
   },
   "request_summary": {
-    "message": "Here is your project summary:\n\nProject Type: {project_type}\nDetails: {project_details}\nUsername: @{username}\n\nDo you want to confirm?",
+    "message": "Here is your project summary:\n\nCategory: {category}\nService: {service}\nDetails: {project_details}\nUsername: @{username}\n\nDo you want to confirm?",
     "options": ["Confirm Transaction", "Cancel Request"],
     "next": {
       "Confirm Transaction": "request_confirmation",
